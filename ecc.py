@@ -53,3 +53,36 @@ class FieldElement:
             bool: True if not equal, False otherwise
         """
         return not (self == other)
+
+    def __add__(self, other: "FieldElement") -> "FieldElement":
+        """
+        Adds a given field element to another
+
+        Args:
+            other (FieldElement): e.g. FieldElement_13(7)
+
+        Returns:
+            FieldElement
+        """
+
+        if self.prime != other.prime:
+            raise TypeError('Cannot add two numbers in different fields')
+
+        num = (self.num + other.num) % self.prime
+        return self.__class__(num, self.prime)
+
+    def __sub__(self, other: "FieldElement") -> "FieldElement":
+        """
+        Subtract a given field element from another
+
+        Args:
+            other (FieldElement): e.g. FieldElement_13(7)
+
+        Returns:
+            FieldElement
+        """
+        if self.prime != other.prime:
+            raise TypeError('Cannot subtract two numbers in different fields')
+
+        num = (self.num - other.num) % self.prime
+        return self.__class__(num, self.prime)
