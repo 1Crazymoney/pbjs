@@ -86,3 +86,32 @@ class FieldElement:
 
         num = (self.num - other.num) % self.prime
         return self.__class__(num, self.prime)
+
+    def __mul__(self, other: "FieldElement") -> "FieldElement":
+        """
+        Multiply a given field element with another
+        
+        Args:
+            other (FieldElement): e.g. FieldElement_13(7)
+
+        Returns:
+            FieldElement
+        """
+        if self.prime != other.prime:
+            raise TypeError('Cannot multiply two numbers in different fields')
+        
+        num = (self.num * other.num) % self.prime
+        return self.__class__(num, self.prime)
+
+    def __pow__(self, exponent: int) -> "FieldElement":
+        """
+        Raises the power of the field element to the given exponent
+
+        Args:
+            exponent (int): an integer
+
+        Returns:
+            FieldElement
+        """
+        num = pow(self.num, exponent, self.prime)
+        return self.__class__(num, self.prime)
