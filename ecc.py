@@ -2,6 +2,12 @@
 Library containing helper classes for elliptic curve cryptography (ECC)
 """
 
+from unittest import result
+
+A = 0
+B = 7
+
+
 class FieldElement:
     """An element belonging to a finite set"""
     def __init__(self, num: int, prime: int) -> "FieldElement":
@@ -217,3 +223,59 @@ class Point:
         if self == other and self.y == 0 * self.x:
             return self.__class__(None, None, self.a, self.b)
 
+    def __rmul__(self, coefficient: int):
+        """
+        Scalar multiplication of a point
+        """
+        coef = coefficient
+        current = self
+        result = self.__class__(None, None, self.a, self.b)
+        
+        while coef:
+            if coef & 1:
+                result += current
+            current += current
+            coef >>= 1
+        
+        return result
+
+N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+P = 2**256 - 2**32 - 977
+
+
+class S256Field(FieldElement):
+    """
+    An element belonging to the finite set of field F_p where 
+    p = 2^256 - 2^32 - 977
+    """
+    def __init__(self, num: int, prime: int = None) -> "FieldElement":
+        super().__init__(num, prime=P)
+
+    def __repr__(self) -> str:
+        return '{:x}'.format(self.num).zfill(64)
+
+
+class S256Point(Point):
+    """
+    A point on the secp256k1 elliptic curve that bitcoin uses
+    """
+    def __init__(self, x: int, y: int, a: int = None, b: int = None) -> "S256Point":
+        a, b = S256Field(A), S256Field(B)
+        if type(x) == int:
+            super().__init__(x = S256Field(x), y=S256Field(y), a=a, b=b)
+        else:
+            super().__init__(x = x, y = y, a = a, b = b)
+
+    def
+
+    def __rmul__(self, coefficient: int) -> "S256Point":
+        """
+        Scalar multiplication of bitcoin elliptic curve point
+        """
+        coef = coefficient % N
+        return super().__rmul__(coef)
+
+G = S256Point(
+    0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
+    0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
+)

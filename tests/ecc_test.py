@@ -5,6 +5,8 @@ Tests the classes in ecc.py
 import pytest
 from ecc import FieldElement, Point
 
+
+# TODO: parametrize test
 def test_on_curve():
     prime = 223
     a = FieldElement(0, prime)
@@ -30,3 +32,5 @@ def test_on_curve():
         y = FieldElement(y_raw, prime)
         with pytest.raises(ValueError):
             Point(x, y, a, b)
+
+# TODO: add test to check Point addition
