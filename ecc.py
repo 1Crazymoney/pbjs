@@ -2,7 +2,10 @@
 Library containing helper classes for elliptic curve cryptography (ECC)
 """
 
-from unittest import result
+import hashlib
+import hmac
+from typing import Optional
+from random import randint
 
 A = 0
 B = 7
@@ -259,14 +262,19 @@ class S256Point(Point):
     """
     A point on the secp256k1 elliptic curve that bitcoin uses
     """
-    def __init__(self, x: int, y: int, a: int = None, b: int = None) -> "S256Point":
+    def __init__(
+        self, 
+        x: Optional(int, S256Field), 
+        y: Optional(int, S256Field), 
+        a: int = None, 
+        b: int = None
+    ) -> "S256Point":
+
         a, b = S256Field(A), S256Field(B)
         if type(x) == int:
             super().__init__(x = S256Field(x), y=S256Field(y), a=a, b=b)
         else:
             super().__init__(x = x, y = y, a = a, b = b)
-
-    def
 
     def __rmul__(self, coefficient: int) -> "S256Point":
         """
@@ -275,7 +283,92 @@ class S256Point(Point):
         coef = coefficient % N
         return super().__rmul__(coef)
 
+    def verify(self, z: int, sig: "Signature"):
+        """
+        Verify a signature
+        """
+        s_inv = pow(sig.s, N -2, N)
+        u = (z * s_inv) % N
+        v = (sig.r * s_inv) % N
+        total = (u * G) + (v * self)
+        return total.x.num == sig.r
+
 G = S256Point(
     0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
     0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
 )
+
+
+class Signature:
+    """
+    Possesses create signatures, as well as methods to sign and verify 
+    data
+    """
+    def __init__(self, r: int, s: int) -> None:
+        """
+        Initializes a new signature
+        """
+        self.r = r
+        self.s = s
+
+    def __repr__(self) -> str:
+        """
+        String representation of Signature
+        """
+        return "Signature({:x}, {:x})".format(self.r, self.x)
+
+
+class PrivateKey:
+    """
+    Class to house private key/secret
+    """
+    def __init__(self, secret) -> None:
+        """
+        Initialize private key
+        """
+        self.secret: int = secret
+        self.point: int = secret * G  # P = eG
+
+    def hex(self) -> int:
+        """
+        Returns a hexadecimal representation of private key
+        """
+        return "{:x}".format(self.secret).zfill(64)
+
+    def sign(self, z: int) -> Signature: 
+        """
+        Signs data
+        """
+        k = randint(0, N)
+        r = (k * G).x.num 
+        k_inv = pow(k, N - 2, N)
+        s = (z + r*self.secret) * k_inv % N
+        if s > N/2:
+            s = N - s
+        return Signature(r, s)
+
+    def deterministic_k(self, z: int):
+        k = b'\x00' * 32
+        v = b'\x01' * 32
+
+        if z > N:
+            z -= N
+
+        z_bytes = z.to_bytes(32, 'big')
+        secret_bytes = self.secret.to_bytes(32, 'big')
+        s256 = hashlib.sha256
+
+        k = hmac.new(k, v + b'\x00' + secret_bytes + z_bytes, s256).digest()
+        v = hmac.new(k, v, s256).digest()
+        k = hmac.new(k, v + b'\x01' + secret_bytes + z_bytes, s256).digest()
+        v = hmac.new(k, v, s256).digest()
+
+        while True:
+            v = hmac.new(k, v, s256).digest()
+            candidate = int.from_bytes(v, 'big')
+
+            if candidate >= 1 and candidate < N:
+                return candidate
+
+            k = hmac.new(k, v + b'\x00', s256).digest()
+            v = hmac.new(k, v, s256).digest()
