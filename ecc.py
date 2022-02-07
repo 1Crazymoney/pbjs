@@ -154,8 +154,8 @@ class Point:
         Instantiates a point
 
         Args:
-            x (int): x-coordinate
-            y (int): y-coordinate 
+            x (int): x-coordinate value
+            y (int): y-coordinate value
             a (int): constant coefficient of x
             b (int): constant
 
@@ -283,9 +283,16 @@ class S256Point(Point):
         coef = coefficient % N
         return super().__rmul__(coef)
 
-    def verify(self, z: int, sig: "Signature"):
+    def verify(self, z: int, sig: "Signature") -> bool:
         """
-        Verify a signature
+        Verifies a signature
+
+        Args: 
+            z (int): Signature hash/digital footprint of data
+            sig (Signature): Digital signature
+
+        Returns:
+            True (bool)
         """
         s_inv = pow(sig.s, N -2, N)
         u = (z * s_inv) % N
@@ -337,17 +344,26 @@ class PrivateKey:
 
     def sign(self, z: int) -> Signature: 
         """
-        Signs data
+        Signs transaction data
+
+        Args:
+            z (int): signature hash, digital fingerprint of data
+
+        Returns: 
+            Signature(r,s): Digital signature
         """
-        k = randint(0, N)
+        k = self.deterministic_k(z)
         r = (k * G).x.num 
         k_inv = pow(k, N - 2, N)
-        s = (z + r*self.secret) * k_inv % N
+        s = (z + r * self.secret) * k_inv % N
         if s > N/2:
             s = N - s
         return Signature(r, s)
 
     def deterministic_k(self, z: int):
+        """
+        Generates a deterministic integer k
+        """
         k = b'\x00' * 32
         v = b'\x01' * 32
 
