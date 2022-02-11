@@ -506,5 +506,3 @@ class PrivateKey:
             suffix = b''
 
         return encode_base58_checksum(prefix + secret_bytes + suffix)
-
-
