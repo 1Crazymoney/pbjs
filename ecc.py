@@ -4,8 +4,9 @@ Library containing helper classes for elliptic curve cryptography (ECC)
 
 import hashlib
 import hmac
-from typing import Optional
-from random import randint
+from typing import Union
+
+from helper import encode_base58_checksum, hash160
 
 A = 0
 B = 7
@@ -149,7 +150,13 @@ class Point:
     """
     A point on an elliptic curve
     """
-    def __init__(self, x: int, y: int, a: int, b: int) -> "Point":
+    def __init__(
+        self, 
+        x: Union[int, FieldElement], 
+        y: Union[int, FieldElement], 
+        a: Union[int, FieldElement], 
+        b: Union[int, FieldElement]
+    ) -> "Point":
         """
         Instantiates a point
 
@@ -257,6 +264,11 @@ class S256Field(FieldElement):
     def __repr__(self) -> str:
         return '{:x}'.format(self.num).zfill(64)
 
+    def sqrt(self) -> "S256Field":
+        """
+        Returns the square root of an S256Field element
+        """
+        return self**((P + 1) // 4)
 
 class S256Point(Point):
     """
@@ -264,8 +276,8 @@ class S256Point(Point):
     """
     def __init__(
         self, 
-        x: Optional(int, S256Field), 
-        y: Optional(int, S256Field), 
+        x: Union[int, S256Field], 
+        y: Union[int, S256Field], 
         a: int = None, 
         b: int = None
     ) -> "S256Point":
@@ -300,6 +312,71 @@ class S256Point(Point):
         total = (u * G) + (v * self)
         return total.x.num == sig.r
 
+    def sec(self, compressed=True):
+        """
+        Returns the binary version of the SEC format
+
+        Args:
+            compressed (bool): True if SEC format is compressed, false otherwise
+        """
+        if compressed:
+            if self.y.num % 2 == 0:
+                return b'\x02' + self.x.num.to_bytes(32, 'big')
+            else:
+                return b'\x03' + self.x.num.to_bytes(32, 'big')
+
+        return b'\x04' + self.x.num.to_bytes(32, 'big') + self.y.num.to_bytes(32, 'big')
+
+    @classmethod
+    def parse(self, sec_bin) -> "S256Point":
+        """
+        Returns a Point object from a SEC binary/serialized public key (not hex) 
+        """
+        if sec_bin[0] == 4:
+            x = int.from_bytes(sec_bin[1:33], 'big')
+            y = int.from_bytes(sec_bin[33:65], 'big')
+            return S256Point(x = x, y = y)
+
+        is_even = sec_bin[0] == 2
+        x = S256Field(int.from_bytes(sec_bin[1:], 'big'))
+
+        # right side of the equation y^2 = x^3 + 7
+        alpha: S256Field = x**3 + S256Field(B)
+
+        # solve for left side
+        beta = alpha.sqrt()
+
+        if beta.num % 2 == 0:
+            even_beta = beta
+            odd_beta = S256Field(P - beta.num)
+        else:
+            even_beta = S256Field(P - beta.num)
+            odd_beta = beta
+
+        if is_even:
+            return S256Point(x, even_beta)
+        else:
+            return S256Point(x, odd_beta)
+
+    def hash160(self, compressed=True) -> bytes:
+        """
+        Returns a double hash: ripemd160(sha256(SEC_PUB_KEY))
+        """
+        return hash160(self.sec(compressed))
+
+    def address(self, compressed=True, testnet=False) -> str:
+        """
+        Returns an address string
+        """ 
+        h160 = self.hash160(compressed)
+
+        if testnet:
+            prefix = b'\x6f'
+        else:
+            prefix = b'\x00'
+        
+        return encode_base58_checksum(prefix + h160)
+
 G = S256Point(
     0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
     0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
@@ -308,7 +385,7 @@ G = S256Point(
 
 class Signature:
     """
-    Possesses create signatures, as well as methods to sign and verify 
+    Creates signatures, as well as methods to sign and verify 
     data
     """
     def __init__(self, r: int, s: int) -> None:
@@ -324,6 +401,32 @@ class Signature:
         """
         return "Signature({:x}, {:x})".format(self.r, self.x)
 
+    def der(self):
+        """
+        Returns the DER format of a signature
+        """
+        rbin = self.r.to_bytes(32, byteorder='big')
+
+        # remove all null bytes at the beginning
+        rbin = rbin.lstrip(b'\x00')
+        # if rbin has a high bit, add \x00
+        if rbin[0] & 0x80:
+            rbin = b'\x00' + rbin
+
+        result = bytes([2, len(rbin)]) + rbin
+        
+        sbin = self.s.to_bytes(32, byteorder='big')
+
+        # remove all null bytes at the beginning
+        sbin = sbin.lstrip(b'\x00')
+        # if sbin has a high bit, add \x00
+        if sbin[0] & 0x80:
+            sbin = b'\x00' + sbin
+
+        result += bytes([2, len(sbin)]) + sbin
+
+        return bytes([0x30, len(result)]) + result
+
 
 class PrivateKey:
     """
@@ -334,7 +437,7 @@ class PrivateKey:
         Initialize private key
         """
         self.secret: int = secret
-        self.point: int = secret * G  # P = eG
+        self.point: Point = secret * G  # P = eG
 
     def hex(self) -> int:
         """
@@ -388,3 +491,20 @@ class PrivateKey:
 
             k = hmac.new(k, v + b'\x00', s256).digest()
             v = hmac.new(k, v, s256).digest()
+
+    def wif(self, compressed=True, testnet=False) -> bytes:
+        secret_bytes = self.secret.to_bytes(32, "big")
+
+        if testnet:
+            prefix = b'\xef'
+        else:
+            prefix = b'\x80'
+
+        if compressed:
+            suffix = b'\x01'
+        else:
+            suffix = b''
+
+        return encode_base58_checksum(prefix + secret_bytes + suffix)
+
+
