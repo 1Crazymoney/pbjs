@@ -8,7 +8,7 @@ BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 def hash256(s) -> bytes:
     """
-    Performs two rounds of shs256
+    Performs two rounds of sha256
     """
     return hashlib.sha256(hashlib.sha256(s).digest()).digest()
 
