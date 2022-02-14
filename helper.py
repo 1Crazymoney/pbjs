@@ -8,7 +8,7 @@ BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 def hash256(s) -> bytes:
     """
-    Performs two rounds of shs256
+    Performs two rounds of sha256
     """
     return hashlib.sha256(hashlib.sha256(s).digest()).digest()
 
@@ -91,3 +91,57 @@ def encode_varint(i):
         return b'\xff' + int_to_little_endian(1, 8)
     else:
         raise ValueError('integer too large: {}'.format(i))
+
+
+def encode_num(num) -> bytes:
+    """
+    Encode an integer number to bytes equivalent
+    """
+    if num == 0:
+        return b''
+
+    abs_num = abs(num)
+    negative = num < 0
+    result = bytearray()
+
+    while abs_num:
+        result.append(abs_num & 0xff)
+        abs_num >>= 8
+
+    if result[-1] & 0x80:
+        if negative:
+            result.append(0x80)
+
+        else:
+            result.append(0)
+
+    elif negative:
+        result[-1] |= 0x80
+
+    return bytes(result)
+
+def decode_num(element) -> int:
+    """
+    Decode an integer from its byte equivalent
+    """
+    if element == b'':
+        return 0
+
+    big_endian = element[::-1]
+    if big_endian[0] & 0x80:
+        negative = True
+        result = big_endian[0] & 0x7f
+
+    else:
+        negative = False
+        result = big_endian[0]
+
+    for c in big_endian[1:]:
+        result <<= 8
+        result += c
+
+    if negative:
+        return -result
+
+    else:
+        return result
