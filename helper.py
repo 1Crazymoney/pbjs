@@ -3,7 +3,10 @@ Helper functions for ecc.py
 """
 import hashlib
 
+from script import Script
+
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+SIGHASH_ALL = 1
 
 
 def hash256(s) -> bytes:
@@ -145,3 +148,26 @@ def decode_num(element) -> int:
 
     else:
         return result
+
+def decode_base58(s):
+    """
+    Decodes a base58 encoded address to extract the hash of address
+    """
+    num = 0
+    for c in s:
+        num *= 58
+        num += BASE58_ALPHABET.index(c)
+
+    combined = num.to_bytes(25, byteorder="big")
+    checksum = combined[-4:]
+
+    if hash256(combined[:-4])[:4] != checksum:
+        raise ValueError(f"bad address: {checksum} {hash256(combined[:-4])[:4]}")
+
+    return combined[1:-4]
+
+def p2pkh_script(h160):
+    """
+    Takes a hash160 and returns the p2pkh ScriptPubKey
+    """
+    return Script([0x76, 0xa9, h160, 0x88, 0xac])
