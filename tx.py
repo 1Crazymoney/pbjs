@@ -1,4 +1,5 @@
 from io import BytesIO
+from typing import List
 from typing_extensions import Self
 import requests
 
@@ -7,9 +8,13 @@ from helper import (
     hash256, 
     int_to_little_endian, 
     little_endian_to_int, 
-    read_varint
+    read_varint,
+    SIGHASH_ALL
 )
 from script import Script
+from ecc import PrivateKey
+
+
 
 class Tx:
     """
@@ -20,8 +25,8 @@ class Tx:
         Initializes a transaction
         """
         self.version = version
-        self.tx_ins = tx_ins
-        self.tx_outs = tx_outs
+        self.tx_ins: List[TxIn] = tx_ins
+        self.tx_outs: List[TxOut] = tx_outs
         self.locktime = locktime
         self.testnet = testnet
 
@@ -107,6 +112,76 @@ class Tx:
 
         return input_sum - output_sum
 
+    def sig_hash(self, input_index):
+        """
+        Compute the signature hash for a transaction
+        """
+        s = int_to_little_endian(self.version, 4)
+        s += encode_varint(len(self.tx_ins))
+        for i, tx_in in enumerate(self.tx_ins):
+            if i == input_index:
+                s += TxIn(
+                    prev_tx=tx_in.prev_tx,
+                    prev_index=tx_in.prev_index,
+                    script_sig=tx_in.script_pubkey(self.testnet),
+                    sequence=tx_in.sequqnce
+                ).serialize()
+            else:
+                s += TxIn(
+                    prev_tx=tx_in.prev_tx,
+                    prev_index=tx_in.prev_index,
+                    sequence=tx_in.sequqnce
+                ).serialize()
+
+        s += encode_varint(len(self.tx_outs))
+        for tx_out in self.tx_outs:
+            s += tx_out.serialize()
+
+        s += int_to_little_endian(self.locktime, 4)
+        s += int_to_little_endian(SIGHASH_ALL, 4)
+        h256 = hash256(s)
+        return int.from_bytes(h256, 'big')
+
+    def verify_input(self, input_index):
+        """
+        Verify a transaction input
+        """
+        tx_in: TxIn = self.tx_ins[input_index]
+        script_pubkey = tx_in.script_pubkey(testnet=self.testnet)
+        z = self.sig_hash(input_index)
+        combined: Script = tx_in.script_sig + script_pubkey
+
+        return combined.evaluate(z)
+
+    def verify(self):
+        """
+        Verify this transaction
+        """
+        if self.fee() < 0:
+            return False
+
+        for i in range(len(self.tx_ins)):
+            if not self.verify_input(i):
+                return False
+        
+        return True
+
+    def sign_input(self, input_index: int, private_key: PrivateKey):
+        """
+        Signs a transaction input
+
+        Args:
+            input_index (int): the index of the transaction input
+            private_key (int): private key to sign the transaction input
+        """
+        z = self.sig_hash(input_index=input_index)
+        der = private_key.sign(z).der()
+        sig = der + SIGHASH_ALL.to_bytes(1, 'big')
+        sec = private_key.point.sec()
+        self.tx_ins[input_index].script_sig = Script([sig, sec])
+
+        return self.verify_input(input_index)
+
 
 class TxIn:
     """
@@ -174,7 +249,7 @@ class TxIn:
         Get the ScriptPubKey by looking up the tx hash
         Returns a Script object
         """
-        tx = self.fetch_tx(testnet=testnet)
+        tx: Tx = self.fetch_tx(testnet=testnet)
         return tx.tx_outs[self.prev_index].script_pubkey
 
 
@@ -233,7 +308,7 @@ class TxFetcher:
     @classmethod
     def fetch(cls, tx_id, testnet=False, fresh=False) -> "Tx":
         """
-        
+        Fetch transactions from the UTXO set
         """
         if fresh or (tx_id not in cls.cache):
             url = f'{cls.get_url(testnet)}/tx/{tx_id}.hex'
