@@ -437,7 +437,7 @@ class PrivateKey:
         Initialize private key
         """
         self.secret: int = secret
-        self.point: Point = secret * G  # P = eG
+        self.point: S256Point = secret * G  # P = eG
 
     def hex(self) -> int:
         """
