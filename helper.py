@@ -3,7 +3,10 @@ Helper functions for ecc.py
 """
 import hashlib
 
+from script import Script
+
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+SIGHASH_ALL = 1
 
 
 def hash256(s) -> bytes:
@@ -145,3 +148,48 @@ def decode_num(element) -> int:
 
     else:
         return result
+
+def decode_base58(s):
+    """
+    Decodes a base58 encoded address to extract the hash of address
+    """
+    num = 0
+    for c in s:
+        num *= 58
+        num += BASE58_ALPHABET.index(c)
+
+    combined = num.to_bytes(25, byteorder="big")
+    checksum = combined[-4:]
+
+    if hash256(combined[:-4])[:4] != checksum:
+        raise ValueError(f"bad address: {checksum} {hash256(combined[:-4])[:4]}")
+
+    return combined[1:-4]
+
+def p2pkh_script(h160):
+    """
+    Takes a hash160 and returns the p2pkh ScriptPubKey
+    """
+    return Script([0x76, 0xa9, h160, 0x88, 0xac])
+
+def h160_to_p2pkh_address(h160: bytes, testnet=False):
+    """
+    Encodes a 20-byte H160 to P2PKH address
+    """
+    if testnet:
+        prefix = b'\x6f'
+    else:
+        prefix = b'\x00'
+
+    return encode_base58_checksum(prefix + h160)
+
+def h160_to_p2sh_address(h160: bytes, testnet=False):
+    """
+    Encodes a 20-byte H160 to P2PKH address
+    """
+    if testnet:
+        prefix = b'\xc4'
+    else:
+        prefix = b'\x05'
+
+    return encode_base58_checksum(prefix + h160)
