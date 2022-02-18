@@ -171,3 +171,25 @@ def p2pkh_script(h160):
     Takes a hash160 and returns the p2pkh ScriptPubKey
     """
     return Script([0x76, 0xa9, h160, 0x88, 0xac])
+
+def h160_to_p2pkh_address(h160: bytes, testnet=False):
+    """
+    Encodes a 20-byte H160 to P2PKH address
+    """
+    if testnet:
+        prefix = b'\x6f'
+    else:
+        prefix = b'\x00'
+
+    return encode_base58_checksum(prefix + h160)
+
+def h160_to_p2sh_address(h160: bytes, testnet=False):
+    """
+    Encodes a 20-byte H160 to P2PKH address
+    """
+    if testnet:
+        prefix = b'\xc4'
+    else:
+        prefix = b'\x05'
+
+    return encode_base58_checksum(prefix + h160)
