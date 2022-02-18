@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import List
+from typing import List, Optional
 from typing_extensions import Self
 import requests
 
@@ -212,6 +212,16 @@ class Tx:
             return False
 
         return True
+
+    def coinbase_height(self) -> Optional[int]:
+        """
+        Returns the block height of the coinbase transaction
+        """
+        if not self.is_coinbase():
+            return None
+
+        element = self.tx_ins[0].script_sig.cmds[0]
+        return little_endian_to_int(element)
 
 
 class TxIn:
