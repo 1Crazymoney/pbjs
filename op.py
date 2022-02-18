@@ -1,6 +1,7 @@
 """
 Operation Codes (Opcodes)
 """
+from typing import List
 from helper import hash256, hash160, encode_num, decode_num
 from ecc import S256Point, Signature
 
@@ -64,6 +65,87 @@ def op_checksig(stack, z) -> bool:
         stack.append(encode_num(1))
     else:
         stack.append(encode_num(0))
+    return True
+
+def op_checkmultisig(stack, z) -> bool:
+    """
+    Operation check multisig: consumes m + n + 3 elements
+
+    Args:
+        stack:
+        z (): signature hash/ digital fingerprint of a transaction input
+    """
+    if len(stack) < 1:
+        return False
+
+    n = decode_num(stack.pop())
+    if len(stack) < n + 1:
+        return False
+
+    sec_pubkeys = []
+    for _ in range(n):
+        sec_pubkeys.append(stack.pop())
+
+    m = decode_num(stack.pop())
+    if len(stack) < m + 1:
+        return False
+
+    der_signatures = []
+    for _ in range(m):
+        der_signatures.append(stack.pop()[:-1])
+
+    stack.pop()
+
+    try:
+        points = [S256Point.parse(sec) for sec in sec_pubkeys]
+        sigs = [Signature.parse(der) for der in der_signatures]
+
+        for sig in sigs:
+            if len(points) == 0:
+                return False
+            while points:
+                point = points.pop(0)
+                if point.verify(z, sig):
+                    break
+
+        stack.append(encode_num(1))
+
+    except (ValueError, SyntaxError):
+        return False
+
+    return True
+
+# TODO: implement op_equal
+def op_equal(stack: List):
+    """
+    Checks if two stack elements are equal
+    """
+    if len(stack) < 2:
+        return False
+
+    element1 = stack.pop()
+    element2 = stack.pop()
+
+    if element1 == element2:
+        stack.append(encode_num(1))
+    else:
+        stack.append(encode_num(0))
+
+    return True
+
+# TODO: implement op_verify
+def op_verify(stack):
+    """
+    Verifies that the stack is neither empty nor is the value of
+    element left on the stack equal to 0
+    """
+    if len(stack) < 1:
+        return False
+
+    element = stack.pop()
+    if decode_num(element) == 0:
+        return False
+
     return True
 
 
