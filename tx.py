@@ -197,6 +197,22 @@ class Tx:
 
         return self.verify_input(input_index)
 
+    def is_coinbase(self) -> bool:
+        """
+        Returns True if the Tx is a coinbase transaction, else returns False
+        """
+        if len(self.tx_ins) != 1:
+            return False
+
+        first_input: TxIn = self.tx_ins[0]
+        if first_input.prev_tx != b'\x00' * 32:
+            return False
+
+        if first_input.prev_index != 0xffffffff:
+            return False
+
+        return True
+
 
 class TxIn:
     """
