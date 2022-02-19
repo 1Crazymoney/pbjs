@@ -3,7 +3,8 @@ Block implementation
 """
 from io import BytesIO
 from typing_extensions import Self
-from helper import hash256, int_to_little_endian, little_endian_to_int
+from helper import hash256, int_to_little_endian, little_endian_to_int, bits_to_target
+
 
 class Block:
     """
@@ -55,3 +56,43 @@ class Block:
         sha = hash256(s)
 
         return sha[::-1]
+
+    def bip9(self) -> bool:
+        """
+        BIP0009: 29 different features can be signalled with the version field
+        at the same time
+        """
+        return self.version >> 29 == 0b001
+
+    def bip91(self) -> bool:
+        """
+        Signals BIP0091:
+        """
+        return self.version >> 4 & 1 == 1
+
+    def bip141(self):
+        """
+        Signals BIP0141:
+        """
+        return self.version >> 1 & 1 == 1
+
+    def difficulty(self):
+        """
+        Returns the block difficulty based on bits
+        """
+        lowest = 0xffff * 256 ** (0x1d - 3)
+        return lowest / self.target()
+
+    def target(self):
+        """
+        Returns the proof-of-work target based on bits
+        """
+        return bits_to_target(self.bits)
+
+    def pow(self) -> bool:
+        """
+        Checks the POW
+        """
+        sha = hash256(self.serialize())
+        proof = little_endian_to_int(sha)
+        return proof < self.target()
