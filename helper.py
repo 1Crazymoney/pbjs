@@ -3,8 +3,6 @@ Helper functions for ecc.py
 """
 import hashlib
 
-from script import Script
-
 
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 SIGHASH_ALL = 1
@@ -168,11 +166,6 @@ def decode_base58(s):
 
     return combined[1:-4]
 
-def p2pkh_script(h160):
-    """
-    Takes a hash160 and returns the p2pkh ScriptPubKey
-    """
-    return Script([0x76, 0xa9, h160, 0x88, 0xac])
 
 def h160_to_p2pkh_address(h160: bytes, testnet=False):
     """
