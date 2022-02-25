@@ -43,7 +43,7 @@ class Script:
             self.cmds = cmds
 
     @classmethod
-    def parse(cls, s):
+    def parse(cls, s: BytesIO):
         """
         Parse a stream
         """
