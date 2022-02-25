@@ -3,14 +3,14 @@ Block implementation
 """
 from io import BytesIO
 from typing_extensions import Self
-from helper import hash256, int_to_little_endian, little_endian_to_int, bits_to_target
+from helper import hash256, int_to_little_endian, little_endian_to_int, bits_to_target, merkle_root
 
 
 class Block:
     """
     Attributes and methods that pertain to a bitcoin block of transactions
     """
-    def __init__(self, version, prev_block, merkle_root, timestamp, bits, nonce) -> None:
+    def __init__(self, version, prev_block, merkle_root, timestamp, bits, nonce, tx_hashes=None) -> Self:
         """
         Instantiates a new block
         """
@@ -20,6 +20,7 @@ class Block:
         self.timestamp = timestamp
         self.bits = bits
         self.nonce = nonce
+        self.tx_hashes = tx_hashes
 
     @classmethod
     def parse(cls, s: BytesIO) -> Self:
@@ -56,6 +57,14 @@ class Block:
         sha = hash256(s)
 
         return sha[::-1]
+
+    def validate_merkle_root(self):
+        """
+        Validate the merkle root
+        """
+        hashes = [h[::-1] for h in self.tx_hashes]
+        root = merkle_root(hashes=hashes)
+        return root[::-1] == self.merkle_root
 
     def bip9(self) -> bool:
         """
