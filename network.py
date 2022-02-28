@@ -1,11 +1,12 @@
 """
 Network Implementation
 """
-from ctypes import Union
 from io import BytesIO
 from random import randint
 import socket
 import time
+from typing import List, Union
+from typing_extensions import Self
 
 from helper import (
     encode_varint, 
@@ -324,3 +325,34 @@ class HeadersMessage:
                 raise RuntimeError('number of txs not 0')
         
         return cls(blocks)
+
+
+class GenericMessage:
+    def __init__(self, command, payload) -> Self:
+        """
+        Instantiates a generic message
+        """
+        self.command = command
+        self.payload = payload
+
+    def serialize(self):
+        return self.payload
+
+
+class GetDataMessage:
+    command = b'getdata'
+
+    def __init__(self) -> None:
+        self.data: List = []
+
+    def add_data(self, data_type, identifier):
+        self.data.append((data_type, identifier))
+
+    def serialize(self):
+        result = encode_varint(len(self.data))
+        for data_type, identifier in self.data:
+            result += int_to_little_endian(data_type, 4)
+            result += identifier[::-1]
+
+        return result
+        
